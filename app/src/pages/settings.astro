@@ -3,7 +3,9 @@ import Layout from '@/layouts/Layout.astro';
 import Bar from '@/components/Bar.astro';
 import { ArrowLeft } from 'lucide-react';
 import {Accounts} from '@/components/mail/Accounts';
+import { resolveMcpResourceUrl } from '@/lib/mcp/resource';
 const { userId } = Astro.locals.auth();
+const mcpUrl = resolveMcpResourceUrl(Astro.locals.runtime?.env);
 const accounts: {id: number; email_address: string; alias: string; created_at: string;}[] = [];
 if(Astro.locals.runtime) {
     const { env } = Astro.locals.runtime;
@@ -36,6 +38,11 @@ if(Astro.locals.runtime) {
             ><ArrowLeft size={16} />Back to Inbox</a>
             <h1 class="text-2xl font-bold">Settings</h1>
             <p class="text-sm text-gray-500">Manage your email addresses and notes.</p>
+            <p class="text-sm text-gray-500 mt-2">
+                MCP clients can connect to <code>{mcpUrl}</code> over Streamable HTTP.
+                The client opens Clerk so you can sign in and approve access, then it can list these addresses and read message bodies.
+                This is Fake Mail's own MCP server, separate from Clerk's dashboard MCP.
+            </p>
         </div>
         <div class="p-4">
             <Accounts client:load list={accounts} />
