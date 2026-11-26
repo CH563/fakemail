@@ -4,5 +4,5 @@
  * resource URL (production default or `MCP_RESOURCE_URL`).
  */
 export function mcpAgentPrompt(mcpUrl: string): string {
-    return `Connect to Fake Mail MCP at ${mcpUrl} (Streamable HTTP). Sign in with Clerk OAuth when prompted (scope: profile), then list my mailboxes and read message bodies. Read-only: do not create, delete, or change mail.`;
+    return `Use the Fake Mail MCP at ${mcpUrl} (Streamable HTTP) to list my mailboxes and read message bodies. Read-only: do not create, delete, or change mail.`;
 }
