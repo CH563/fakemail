@@ -12,6 +12,8 @@ type ENV = {
     CLERK_SECRET_KEY: string;
     PUBLIC_CLERK_SIGN_IN_URL: string;
     PUBLIC_CLERK_SIGN_UP_URL: string;
+    /** Optional override of the public MCP resource URL. Defaults to https://mail.fakeact.fun/mcp. */
+    MCP_RESOURCE_URL?: string;
 };
 
 // use a default runtime configuration (advanced mode).

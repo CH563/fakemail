@@ -17,6 +17,8 @@ PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_xxxx"
 CLERK_SECRET_KEY="sk_test_xxxx"
 PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
 PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+# Exact URL MCP clients connect to. Token audience must match. Unset uses https://mail.fakeact.fun/mcp.
+MCP_RESOURCE_URL="https://mail.fakeact.fun/mcp"
 
 
 # npx wrangler d1 create fake-mail
