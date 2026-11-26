@@ -100,7 +100,23 @@ export function createMcpApp(env: McpRuntimeEnv) {
             return c.json({ error: 'server_error' }, 502, metadataCorsHeaders);
         }
     });
-    app.all(MCP_PATH, mcpAuth(mcpAuthOptions), streamableHttpHandler(
+    app.all(MCP_PATH, async (c, next) => {
+        // mcpAuth returns 405 for an unauthenticated GET while the handshake is
+        // public (the default). That response has no WWW-Authenticate header.
+        // Clerk's MCP checker only sends this GET, so answer it with the same
+        // 401 challenge as an unauthenticated tools/call. POST stays the
+        // transport. A GET that already has Authorization continues to mcpAuth
+        // and the streamable handler, which is the authenticated SSE path.
+        if (c.req.method === 'GET' && !c.req.header('authorization')?.trim()) {
+            return c.json({ error: 'Unauthorized' }, {
+                status: 401,
+                headers: {
+                    'WWW-Authenticate': bearerChallenge(resourceUrl, mcpAuthOptions.requiredScopes),
+                },
+            });
+        }
+        await next();
+    }, mcpAuth(mcpAuthOptions), streamableHttpHandler(
         () => createMailMcpServer(env.MAIL_DB ?? unavailableDb()),
         WebStandardStreamableHTTPServerTransport,
     ));
@@ -135,6 +151,26 @@ export function handleMcpHttp(request: Request, env: McpRuntimeEnv): Response | 
         CLERK_SECRET_KEY: env.CLERK_SECRET_KEY,
     };
     return createMcpApp(bindings).fetch(request, bindings);
+}
+
+/**
+ * Bearer challenge `@clerk/mcp-tools` puts on a 401. `resource_metadata` is the
+ * RFC 9728 URL derived from the same `resourceUrl` passed to `mcpAuth`
+ * (`resolveMcpResourceUrl`, including `MCP_RESOURCE_URL`).
+ */
+function bearerChallenge(resourceUrl: string, scopes: readonly string[]): string {
+    const params = [`resource_metadata=${quotedAuthParam(resourceMetadataUrlFor(resourceUrl))}`];
+    if (scopes.length > 0) params.push(`scope=${quotedAuthParam(scopes.join(' '))}`);
+    return `Bearer ${params.join(', ')}`;
+}
+
+function resourceMetadataUrlFor(resourceUrl: string): string {
+    const { origin, pathname, search } = new URL(resourceUrl);
+    return `${origin}/.well-known/oauth-protected-resource${pathname === '/' ? '' : pathname}${search}`;
+}
+
+function quotedAuthParam(value: string): string {
+    return `"${value.replace(/[\\"]/g, '\\$&')}"`;
 }
 
 function unavailableDb(): MailDb {

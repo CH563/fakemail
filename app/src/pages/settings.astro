@@ -3,9 +3,12 @@ import Layout from '@/layouts/Layout.astro';
 import Bar from '@/components/Bar.astro';
 import { ArrowLeft } from 'lucide-react';
 import {Accounts} from '@/components/mail/Accounts';
+import { CopyButton } from '@/components/CopyButton';
 import { resolveMcpResourceUrl } from '@/lib/mcp/resource';
+import { mcpAgentPrompt } from '@/lib/mcp/prompt';
 const { userId } = Astro.locals.auth();
 const mcpUrl = resolveMcpResourceUrl(Astro.locals.runtime?.env);
+const mcpPrompt = mcpAgentPrompt(mcpUrl);
 const accounts: {id: number; email_address: string; alias: string; created_at: string;}[] = [];
 if(Astro.locals.runtime) {
     const { env } = Astro.locals.runtime;
@@ -38,11 +41,31 @@ if(Astro.locals.runtime) {
             ><ArrowLeft size={16} />Back to Inbox</a>
             <h1 class="text-2xl font-bold">Settings</h1>
             <p class="text-sm text-gray-500">Manage your email addresses and notes.</p>
-            <p class="text-sm text-gray-500 mt-2">
-                MCP clients can connect to <code>{mcpUrl}</code> over Streamable HTTP.
-                The client opens Clerk so you can sign in and approve access, then it can list these addresses and read message bodies.
-                This is Fake Mail's own MCP server, separate from Clerk's dashboard MCP.
-            </p>
+            <div class="mt-4 max-w-3xl rounded-md border p-4 dark:border-gray-500">
+                <h2 class="text-lg font-semibold">Use Fake Mail from an AI agent</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    MCP clients connect to this deployment over Streamable HTTP.
+                    This is Fake Mail's own MCP server, separate from Clerk's dashboard MCP.
+                </p>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <code class="break-all text-sm">{mcpUrl}</code>
+                    <CopyButton client:load text={mcpUrl} label="Copy URL" />
+                </div>
+                <ol class="mt-3 list-decimal space-y-1 pl-5 text-sm text-gray-500">
+                    <li>Add the endpoint above. The transport is Streamable HTTP. The client sends MCP messages with POST.</li>
+                    <li>The client opens Clerk so you can sign in and approve access. The token audience is this URL and the scope is <code>profile</code>. A browser session cookie is not used.</li>
+                    <li>The agent should call <code>list_mailboxes</code>, then <code>list_messages</code> with a mailbox id, then <code>get_message</code> with a message id. All three are read-only. <code>get_message</code> returns the body and does not mark the message read.</li>
+                    <li>Only mailboxes saved for your signed-in account are available. Anonymous 2-hour addresses are not part of this MCP.</li>
+                </ol>
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold">Prompt to paste into an agent</h3>
+                    <CopyButton client:load text={mcpPrompt} label="Copy prompt" />
+                </div>
+                <p class="mt-1 text-sm text-gray-500">
+                    Paste this into Cursor, Claude, ChatGPT, or another agent. It has the URL for this deployment.
+                </p>
+                <pre class="mt-2 whitespace-pre-wrap break-words rounded-md border bg-gray-50 p-3 text-xs leading-5 dark:border-gray-500 dark:bg-gray-950">{mcpPrompt}</pre>
+            </div>
         </div>
         <div class="p-4">
             <Accounts client:load list={accounts} />

@@ -83,11 +83,84 @@ describe('product MCP HTTP', () => {
         }), env);
         assert.equal(response.status, 401);
         const challenge = response.headers.get('www-authenticate') ?? '';
-        assert.match(challenge, /Bearer/i);
-        assert.match(challenge, /resource_metadata=/);
-        assert.match(challenge, /oauth-protected-resource\/mcp/);
+        assert.equal(
+            challenge,
+            'Bearer resource_metadata="https://mail.fakeact.fun/.well-known/oauth-protected-resource/mcp", scope="profile"',
+        );
         const body = await response.text();
         assert.doesNotMatch(body, /example\.test|Fake sample|body_text/);
+    });
+
+    it('challenges an unauthenticated GET with the same Bearer header as tools/call', async () => {
+        const getResponse = await handleMcpHttp(mcpRequest('GET'), env);
+        const postResponse = await handleMcpHttp(mcpRequest('POST', {
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'tools/call',
+            params: { name: 'list_mailboxes', arguments: {} },
+        }), env);
+        assert.equal(getResponse.status, 401);
+        assert.equal(postResponse.status, 401);
+        const challenge = getResponse.headers.get('www-authenticate');
+        assert.equal(challenge, postResponse.headers.get('www-authenticate'));
+        assert.equal(
+            challenge,
+            'Bearer resource_metadata="https://mail.fakeact.fun/.well-known/oauth-protected-resource/mcp", scope="profile"',
+        );
+        assert.equal(getResponse.headers.get('allow'), null);
+        const body = await getResponse.json() as { error?: string };
+        assert.equal(body.error, 'Unauthorized');
+    });
+
+    it('uses MCP_RESOURCE_URL in the unauthenticated GET challenge', async () => {
+        const localEnv = { ...env, MCP_RESOURCE_URL: 'http://localhost:4321/mcp/' };
+        const getResponse = await handleMcpHttp(mcpRequest('GET'), localEnv);
+        const postResponse = await handleMcpHttp(mcpRequest('POST', {
+            jsonrpc: '2.0',
+            id: 3,
+            method: 'tools/call',
+            params: { name: 'list_messages', arguments: { id: 1 } },
+        }), localEnv);
+        assert.equal(getResponse.status, 401);
+        const challenge = getResponse.headers.get('www-authenticate');
+        assert.equal(challenge, postResponse.headers.get('www-authenticate'));
+        assert.equal(
+            challenge,
+            'Bearer resource_metadata="http://localhost:4321/.well-known/oauth-protected-resource/mcp", scope="profile"',
+        );
+    });
+
+    it('sends a bearer GET through Clerk auth instead of the missing-token challenge', async () => {
+        const response = await handleMcpHttp(new Request('https://mail.fakeact.fun/mcp', {
+            method: 'GET',
+            headers: {
+                authorization: 'Bearer not-a-jwt',
+                accept: 'application/json, text/event-stream',
+            },
+        }), env);
+        assert.equal(response.status, 401);
+        assert.equal(response.headers.get('allow'), null);
+        assert.equal(
+            response.headers.get('www-authenticate'),
+            'Bearer resource_metadata="https://mail.fakeact.fun/.well-known/oauth-protected-resource/mcp", error="invalid_token", scope="profile"',
+        );
+    });
+
+    it('leaves CORS preflight on /mcp open', async () => {
+        const response = await handleMcpHttp(new Request('https://mail.fakeact.fun/mcp', {
+            method: 'OPTIONS',
+            headers: {
+                origin: 'https://example.com',
+                'access-control-request-method': 'GET',
+            },
+        }), env);
+        assert.notEqual(response.status, 401);
+        assert.equal(response.status, 204);
+        assert.equal(response.headers.get('www-authenticate'), null);
+        const allowMethods = response.headers.get('access-control-allow-methods') ?? '';
+        assert.match(allowMethods, /GET/);
+        assert.match(allowMethods, /POST/);
+        assert.match(allowMethods, /OPTIONS/);
     });
 
     it('publishes protected-resource metadata for the product endpoint', async () => {
