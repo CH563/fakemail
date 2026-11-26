@@ -38,8 +38,8 @@ function clerkClientFor(secretKey: string, publishableKey: string) {
 }
 
 /**
- * This product's MCP server lists mailboxes and reads message bodies for the
- * signed-in user. It is not Clerk's dashboard MCP at mcp.clerk.com.
+ * This product's MCP server creates, deletes, and lists mailboxes and reads
+ * message bodies for the signed-in user. It is not Clerk's dashboard MCP at mcp.clerk.com.
  *
  * Clerk OAuth access tokens are checked by `@clerk/mcp-tools` against
  * `resourceUrl`. Browser session cookies are not accepted.
@@ -185,6 +185,9 @@ function unavailableDb(): MailDb {
                     };
                 },
             };
+        },
+        async batch() {
+            throw new Error('MAIL_DB is not configured');
         },
     };
 }

@@ -12,6 +12,9 @@ const db: MailDb = {
             },
         };
     },
+    async batch() {
+        return [];
+    },
 };
 
 const env = {
@@ -61,7 +64,7 @@ describe('product MCP HTTP', () => {
         assert.equal(isProductMcpPath('/api/getMails'), false);
     });
 
-    it('lists the three read tools without a token', async () => {
+    it('lists the mailbox tools without a token', async () => {
         const response = await handleMcpHttp(mcpRequest('POST', {
             jsonrpc: '2.0',
             id: 1,
@@ -69,9 +72,32 @@ describe('product MCP HTTP', () => {
             params: {},
         }), env);
         assert.equal(response.status, 200);
-        const body = await readRpc(response) as { result?: { tools?: { name: string }[] } };
-        const names = body.result?.tools?.map((tool) => tool.name).sort();
-        assert.deepEqual(names, ['get_message', 'list_mailboxes', 'list_messages']);
+        const body = await readRpc(response) as {
+            result?: { tools?: { name: string; inputSchema?: { properties?: Record<string, unknown> } }[] };
+        };
+        const tools = body.result?.tools ?? [];
+        const names = tools.map((tool) => tool.name).sort();
+        assert.deepEqual(names, ['create_mailbox', 'delete_mailbox', 'get_message', 'list_mailboxes', 'list_messages']);
+        const create = tools.find((tool) => tool.name === 'create_mailbox');
+        const remove = tools.find((tool) => tool.name === 'delete_mailbox');
+        assert.deepEqual(Object.keys(create?.inputSchema?.properties ?? {}).sort(), ['alias']);
+        assert.deepEqual(Object.keys(remove?.inputSchema?.properties ?? {}).sort(), ['id']);
+    });
+
+    it('challenges create_mailbox and delete_mailbox when there is no Clerk token', async () => {
+        for (const name of ['create_mailbox', 'delete_mailbox']) {
+            const response = await handleMcpHttp(mcpRequest('POST', {
+                jsonrpc: '2.0',
+                id: 4,
+                method: 'tools/call',
+                params: { name, arguments: name === 'delete_mailbox' ? { id: 1 } : {} },
+            }), env);
+            assert.equal(response.status, 401);
+            assert.equal(
+                response.headers.get('www-authenticate'),
+                'Bearer resource_metadata="https://mail.fakeact.fun/.well-known/oauth-protected-resource/mcp", scope="profile"',
+            );
+        }
     });
 
     it('challenges a tool call that has no Clerk token', async () => {

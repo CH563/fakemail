@@ -39,15 +39,17 @@ Connect with any MCP client that supports Streamable HTTP and OAuth, for example
 }
 ```
 
-Tools, all read-only:
+Tools:
 
 | Tool | Input | Output |
 | --- | --- | --- |
+| `create_mailbox` | `{ alias? }` optional remark, at most 400 characters | `{ mailbox: { id, email_address, alias, created_at } }` |
+| `delete_mailbox` | `{ id }` mailbox id | `{ deleted: true, id }` |
 | `list_mailboxes` | `{}` | `{ mailboxes: [{ id, email_address, alias, created_at }] }` |
 | `list_messages` | `{ id }` mailbox id | `{ mailbox_id, messages: [{ message_id, subject, sender, senderName, cc, received_at, is_read }] }` (no body) |
 | `get_message` | `{ message_id }` | `{ message: { message_id, subject, sender, senderName, cc, content, received_at, is_read } }` |
 
-`content` is the plain-text body when the message has one, otherwise the HTML body. The same fields are returned by `GET /api/getMails`. `get_message` does not mark the message read.
+`create_mailbox` generates the address the same way as `POST /api/generate` (`word.word` + a number from 0 to 999 + `@fakeact.fun`). It does not accept a custom local-part. A user can have at most 5 mailboxes. `delete_mailbox` removes a mailbox only when `user_email_addresses.user_id` is the signed-in user, and also deletes that mailbox's `emails`, `email_status`, and `email_tag_relations` rows. `content` is the plain-text body when the message has one, otherwise the HTML body. The same fields are returned by `GET /api/getMails`. `get_message` does not mark the message read.
 
 The signed-in settings page shows the URL for the deployment you are on and a prompt you can copy into an AI agent (Cursor, Claude, ChatGPT, or another MCP client). For local development, set `MCP_RESOURCE_URL` to the exact dev URL, such as `http://localhost:4321/mcp`, in `app/.env` or the worker vars. The production default is `https://mail.fakeact.fun/mcp`.
 
